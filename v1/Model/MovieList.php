@@ -44,6 +44,9 @@ class MovieList{
 
     // SETTERS
     public function setListId($listId){
+        if ($listId !== null && (!is_numeric($listId) || $this->_listId !== null )){
+            throw new MovieListException("Error: List ID Issue");
+        }
         $this->_listId = $listId;
     }
 
@@ -56,6 +59,9 @@ class MovieList{
     }
 
     public function setLastUpdated($lastUpdated){
+        if (!$this->isValidDate($lastUpdated, 'Y-m-d H:i:s')){
+            throw new MovieListException("Error: Last Updated Issue")
+        }
         $this->_lastUpdated = $lastUpdated;
     }
 
