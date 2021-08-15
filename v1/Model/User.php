@@ -90,6 +90,19 @@ class User{
     public function setDateOfBirth($dateOfBirth){
         $this->_dateOfBirth = $dateOfBirth;
     }
+
+    public function getUserAsArray(){
+        $user = array();
+        $user['userId'] = $this->getUserID();
+        $user['APIKey'] = $this->getAPIKey();
+        $user['firstName'] = $this->getFirstName();
+        $user['lastName'] = $this->getLastName();
+        $user['email'] = $this->getEmail();
+        $user['phoneNumber'] = $this->getPhoneNumber();
+        $user['dateOfBirth'] = $this->getDateOfBirth();
+
+        return $user;
+    }
 }
 
 

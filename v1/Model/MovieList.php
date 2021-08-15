@@ -19,6 +19,15 @@ class MovieList{
         $this->setUserId($userId);
     }
 
+    public function isValidDate($date, $format = 'Y-m-d'){
+        if ($date === null || $date === ""){
+            return true;
+        }
+        
+        $dateObj = DateTime::createFromFormat($format, $date);
+        return $dateObj && $dateObj->format($format) == $date;
+    }
+
     // GETTERS
 
     public function getListId(){
@@ -60,7 +69,7 @@ class MovieList{
 
     public function setLastUpdated($lastUpdated){
         if (!$this->isValidDate($lastUpdated, 'Y-m-d H:i:s')){
-            throw new MovieListException("Error: Last Updated Issue")
+            throw new MovieListException("Error: Last Updated Issue");
         }
         $this->_lastUpdated = $lastUpdated;
     }
