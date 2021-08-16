@@ -17,21 +17,57 @@ catch(PDOException $exception) {
     exit();
 }
 
-if (array_key_exists("APIKey", $_GET)){
-    $APIKey = $_GET['APIKey'];
+if (array_key_exists("userId", $_GET)){
+    $userId = $_GET['userId'];
 
     // Check API Key is Supplied
-    if ($APIKey === '' || $APIKey === null){
+    if ($userId === '' || !is_numeric($userId)){
         $response = new Response();
         $response->setHttpStatusCode(400);
         $response->setSuccess(false);
-        $response->addMessage("API Key: Cannot be null");
+        $response->addMessage("User ID: Cannot be Null and Must be Numeric");
         $response->send();
         exit();
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET'){
+        // TODO rework get method
         // GET SPECIFIC USER
+        $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, dateOfBirth, password from tbl_users where userId = :userId');
+        $query->bindParam(':userId', $userId, PDO::PARAM_INT);
+        $query->execute();
+
+        $rowCount = $query->rowCount();
+        $userArray = array();
+
+        if($rowCount === 0){
+            $response = new Response();
+            $response->setHttpStatusCode(404);
+            $response->setSuccess(false);
+            $response->addMessage("Error: User ID Not Found");
+            $response->send();
+            exit();
+        }
+
+        while($row = $query->fetch(PDO::FETCH_ASSOC)){
+            $user = new User($row['userId'], $row['firstName'], $row['lastName'], $row['email'], $row['phoneNumber'], $row['dateOfBirth'], $row['password']);
+            array_push($userArray, $user->getUserAsArray()); 
+        }
+
+
+        $returnData = array();
+        $returnData['rows_returned'] = $rowCount;
+        $returnData['users'] = $userArray;
+
+
+        $response = new Response();
+        $response->setHttpStatusCode(200);
+        $response->setSuccess(true);
+        $response->setCache(true);
+        $response->setData($returnData);
+        $response->send();
+        exit();
+
     }
     elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE'){
         // DELETE SPECIFIC USER
@@ -74,10 +110,8 @@ elseif (empty($_GET))
                 exit();
             }
 
-            // Generate API Key
-            $APIKey = md5(rand(1, 99999));
 
-            if (!isset($jsonData->firstName) || !isset($jsonData->lastName) || !isset($jsonData->email) || !isset($jsonData->phoneNumber) || !isset($jsonData->dateOfBirth)){
+            if (!isset($jsonData->firstName) || !isset($jsonData->lastName) || !isset($jsonData->email) || !isset($jsonData->phoneNumber) || !isset($jsonData->dateOfBirth) || !isset($jsonData->password)){
                 $response = new Response();
                 $response->setHttpStatusCode(400);
                 $response->setSuccess(false);
@@ -86,33 +120,44 @@ elseif (empty($_GET))
                 (!isset($jsonData->email) ? $response->addMessage("Error: Email is a Mandatory Field") : false);     
                 (!isset($jsonData->phoneNumber) ? $response->addMessage("Error: Phone Number is a Mandatory Field") : false);   
                 (!isset($jsonData->dateOfBirth) ? $response->addMessage("Error: Date of Birth is a Mandatory Field") : false);    
+                (!isset($jsonData->password) ? $response->addMessage("Error: Password is a Mandatory Field") : false);    
                 $response->send();
                 exit();
             }
 
             $newUser = new User(null,
-                        $APIKey,
                         (isset($jsonData->firstName) ? $jsonData->firstName : null),
                         (isset($jsonData->lastName) ? $jsonData->lastName : null),
                         (isset($jsonData->email) ? $jsonData->email : null),
                         (isset($jsonData->phoneNumber) ? $jsonData->phoneNumber : null),
-                        (isset($jsonData->dateOfBirth) ? $jsonData->dateOfBirth : null));
+                        (isset($jsonData->dateOfBirth) ? $jsonData->dateOfBirth : null),
+                        (isset($jsonData->password) ? $jsonData->password : null));
 
             $firstName = $newUser->getFirstName();
             $lastName = $newUser->getLastName();
             $email = $newUser->getEmail();
             $phoneNumber = $newUser->getPhoneNumber();
             $dateOfBirth = $newUser->getDateOfBirth();
+            $password = password_hash($newUser->getPassword(), PASSWORD_BCRYPT);
+
+            if (!$password){
+                $response = new Response();
+                $response->setHttpStatusCode(400);
+                $response->setSuccess(false);
+                $response->addMessage("Error: An Issue Occured While Creating the Account");
+                $response->send();
+                exit();
+            }
 
 
-            $query = $writeDB->prepare('insert into tbl_users (APIKey, firstName, lastName, email, phoneNumber, dateOfBirth) value (:APIKey, :firstName, :lastName, :email, :phoneNumber, STR_TO_DATE(:dateOfBirth, \'%d-%m-%Y\'))');
+            $query = $writeDB->prepare('insert into tbl_users (firstName, lastName, email, phoneNumber, dateOfBirth, password) value (:firstName, :lastName, :email, :phoneNumber, STR_TO_DATE(:dateOfBirth, \'%d-%m-%Y\'), :password)');
 
-            $query->bindParam(':APIKey', $APIKey , PDO::PARAM_STR);
             $query->bindParam(':firstName', $firstName , PDO::PARAM_STR);
             $query->bindParam(':lastName', $lastName , PDO::PARAM_STR);
             $query->bindParam(':email', $email , PDO::PARAM_STR);
             $query->bindParam(':phoneNumber', $phoneNumber , PDO::PARAM_STR);
             $query->bindParam(':dateOfBirth', $dateOfBirth , PDO::PARAM_STR);
+            $query->bindParam(':password', $password , PDO::PARAM_STR);
         
             $query->execute();
 
@@ -129,12 +174,12 @@ elseif (empty($_GET))
             
             $lastUserID = $writeDB->lastInsertId();
 
-            $query = $readDB->prepare('select userId, APIKey, firstName, lastName, email, phoneNumber, dateOfBirth from tbl_users where userId = :userId');
+            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, dateOfBirth, password from tbl_users where userId = :userId');
             $query->bindParam(':userId', $lastUserID, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
-            $taskArray = array();
+            $userArray = array();
 
             if($rowCount === 0){
                 $response = new Response();
@@ -144,16 +189,18 @@ elseif (empty($_GET))
                 $response->send();
                 exit();
             }
+            
 
             while($row = $query->fetch(PDO::FETCH_ASSOC)){
-                $task = new User($row['userId'], $row['APIKey'], $row['firstName'], $row['lastName'], $row['email'], $row['phoneNumber'], $row['dateOfBirth']);
-                array_push($taskArray, $task->getUserAsArray()); 
+                $user = new User($row['userId'], $row['firstName'], $row['lastName'], $row['email'], $row['phoneNumber'], $row['dateOfBirth'], $row['password']);
+                array_push($userArray, $user->getUserAsArray()); 
             }
 
+            
 
             $returnData = array();
             $returnData['rows_returned'] = $rowCount;
-            $returnData['tasks'] = $taskArray;
+            $returnData['users'] = $userArray;
 
 
             $response = new Response();
@@ -161,7 +208,6 @@ elseif (empty($_GET))
             $response->setSuccess(true);
             $response->setCache(true);
             $response->setData($returnData);
-            $response->addMessage("Take Note of Your Unique API Key");
             $response->send();
             exit();
         }

@@ -7,22 +7,22 @@ class UserException extends Exception{
 
 class User{
     private $_userId;
-    private $_APIKey;
     private $_firstName;
     private $_lastName;
     private $_email;
     private $_phoneNumber;
     private $_dateOfBirth;
+    private $_password;
 
-    public function __construct($userId, $APIKey, $firstName, $lastName, $email, $phoneNumber, $dateOfBirth)
+    public function __construct($userId, $firstName, $lastName, $email, $phoneNumber, $dateOfBirth, $password)
     {
         $this->setUserID($userId);
-        $this->setAPIKey($APIKey);
         $this->setFirstName($firstName);
         $this->setLastName($lastName);
         $this->setEmail($email);
         $this->setPhoneNumber($phoneNumber);
         $this->setDateOfBirth($dateOfBirth);
+        $this->setPassword($password);
     }
 
     // GETTERS
@@ -55,6 +55,9 @@ class User{
         return $this->_dateOfBirth;
     }
 
+    public function getPassword(){
+        return $this->_password;
+    }
 
     // SETTERS
 
@@ -65,9 +68,6 @@ class User{
         $this->_userId = $userId;
     }
 
-    public function setAPIKey($APIKey){
-        $this->_APIKey = $APIKey;
-    }
 
     public function setFirstName($firstName){
 
@@ -91,15 +91,23 @@ class User{
         $this->_dateOfBirth = $dateOfBirth;
     }
 
+    public function setPassword($password){
+        if ($password === null || strlen($password) < 6){
+            throw new UserException("Error: Password must be at Least 6 characters");
+        }
+
+        $this->_password = $password;
+    }
+
     public function getUserAsArray(){
         $user = array();
         $user['userId'] = $this->getUserID();
-        $user['APIKey'] = $this->getAPIKey();
         $user['firstName'] = $this->getFirstName();
         $user['lastName'] = $this->getLastName();
         $user['email'] = $this->getEmail();
         $user['phoneNumber'] = $this->getPhoneNumber();
         $user['dateOfBirth'] = $this->getDateOfBirth();
+        $user['password'] = $this->getPassword();
 
         return $user;
     }
