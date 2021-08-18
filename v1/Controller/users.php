@@ -3,18 +3,22 @@ require_once('db.php');
 require_once('../Model/User.php');
 require_once('../Model/Response.php');
 
-try {
-    $writeDB = DB::connectWriteDB();
-    $readDB = DB::connectReadDB();
-}
-catch(PDOException $exception) {
-    error_log("Data Connection Error - ", 0);
-    $response = new Response();
-    $response->setHttpStatusCode(500);
-    $response->setSuccess(false);
-    $response->addMessage("Database Connection Failed".$exception);
-    $response->send();
-    exit();
+require_once('auth.php');
+
+if (!isset($writeDB) || !isset($readDB)){
+    try {
+        $writeDB = DB::connectWriteDB();
+        $readDB = DB::connectReadDB();
+    }
+    catch(PDOException $exception) {
+        error_log("Data Connection Error - ", 0);
+        $response = new Response();
+        $response->setHttpStatusCode(500);
+        $response->setSuccess(false);
+        $response->addMessage("Database Connection Failed".$exception);
+        $response->send();
+        exit();
+    }
 }
 
 if (array_key_exists("userId", $_GET)){
@@ -174,7 +178,7 @@ elseif (empty($_GET))
             
             $lastUserID = $writeDB->lastInsertId();
 
-            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, dateOfBirth, password from tbl_users where userId = :userId');
+            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, dateOfBirth, password from tbl_users where userId=:userId');
             $query->bindParam(':userId', $lastUserID, PDO::PARAM_INT);
             $query->execute();
 
