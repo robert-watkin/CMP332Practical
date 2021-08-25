@@ -4,6 +4,7 @@ require_once('../Model/Response.php');
 require_once('../Model/User.php');
 require_once('db.php');
 
+use Firebase\JWT\ExpiredException;
 use \Firebase\JWT\JWT;
 
 // setup db connection
@@ -63,12 +64,21 @@ if (!empty($headers) && isset($headers['Authorization'])) {
     }
 
     // decode token
-    $secretkey = 'privatekey';
-    $values = JWT::decode($APIKey, $secretkey, ['HS512']);
-    
-    $initialised = $values->iat;
-    $expiry = $values->exp;
-    $authorisedUserId = $values->userId;
+    try {
+        $secretkey = 'privatekey';
+        $values = JWT::decode($APIKey, $secretkey, ['HS512']);
+        
+        $initialised = $values->iat;
+        $expiry = $values->exp;
+        $authorisedUserId = $values->userId;
+    } catch (ExpiredException $exception){
+        $response = new Response();
+        $response->setHttpStatusCode(401);
+        $response->setSuccess(false);
+        $response->addMessage("Error: Unauthorised Access - API Key Not Valid or Has Expired");
+        $response->send();
+        exit();
+    }
 
     date_default_timezone_set('Europe/London');
     $now = new DateTime();

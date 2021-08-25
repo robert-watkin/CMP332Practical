@@ -3,7 +3,6 @@ require_once('db.php');
 require_once('../Model/User.php');
 require_once('../Model/Response.php');
 
-require_once('auth.php');
 
 if (!isset($writeDB) || !isset($readDB)){
     try {
@@ -20,76 +19,7 @@ if (!isset($writeDB) || !isset($readDB)){
         exit();
     }
 }
-
-if (array_key_exists("userId", $_GET)){
-    $userId = $_GET['userId'];
-
-    // Check API Key is Supplied
-    if ($userId === '' || !is_numeric($userId)){
-        $response = new Response();
-        $response->setHttpStatusCode(400);
-        $response->setSuccess(false);
-        $response->addMessage("User ID: Cannot be Null and Must be Numeric");
-        $response->send();
-        exit();
-    }
-
-    if ($_SERVER['REQUEST_METHOD'] === 'GET'){
-        // TODO rework get method
-        // GET SPECIFIC USER
-        $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, dateOfBirth, password from tbl_users where userId = :userId');
-        $query->bindParam(':userId', $userId, PDO::PARAM_INT);
-        $query->execute();
-
-        $rowCount = $query->rowCount();
-        $userArray = array();
-
-        if($rowCount === 0){
-            $response = new Response();
-            $response->setHttpStatusCode(404);
-            $response->setSuccess(false);
-            $response->addMessage("Error: User ID Not Found");
-            $response->send();
-            exit();
-        }
-
-        while($row = $query->fetch(PDO::FETCH_ASSOC)){
-            $user = new User($row['userId'], $row['firstName'], $row['lastName'], $row['email'], $row['phoneNumber'], $row['dateOfBirth'], $row['password']);
-            array_push($userArray, $user->getUserAsArray()); 
-        }
-
-
-        $returnData = array();
-        $returnData['rows_returned'] = $rowCount;
-        $returnData['users'] = $userArray;
-
-
-        $response = new Response();
-        $response->setHttpStatusCode(200);
-        $response->setSuccess(true);
-        $response->setCache(true);
-        $response->setData($returnData);
-        $response->send();
-        exit();
-
-    }
-    elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE'){
-        // DELETE SPECIFIC USER
-    }
-    elseif ($_SERVER['REQUEST_METHOD'] === 'PATCH'){
-        // UPDATE SPECIFIC USER
-    }
-    else {
-        $response = new Response();
-        $response->setHttpStatusCode(405);
-        $response->setSuccess(false);
-        $response->addMessage("Invalid Request Method");
-        $response->send();
-        exit();
-    }
-
-}
-elseif (empty($_GET))
+if (empty($_GET))
 {
     if ($_SERVER['REQUEST_METHOD'] === 'POST'){
         // CREATES A NEW USER
@@ -228,6 +158,265 @@ elseif (empty($_GET))
             $response->setHttpStatusCode(500);
             $response->setSuccess(false);
             $response->addMessage("PDO Error: Failed to Insert User into Database".$exception);
+            $response->send();
+            exit();
+        }
+    }
+    elseif ($_SERVER['REQUEST_METHOD'] === 'GET'){
+        require_once('auth.php');
+
+
+        // GET SPECIFIC USER
+        $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, dateOfBirth, password from tbl_users where userId = :userId');
+        $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+        $query->execute();
+
+        $rowCount = $query->rowCount();
+        $userArray = array();
+
+        if($rowCount === 0){
+            $response = new Response();
+            $response->setHttpStatusCode(404);
+            $response->setSuccess(false);
+            $response->addMessage("Error: User ID Not Found");
+            $response->send();
+            exit();
+        }
+
+        while($row = $query->fetch(PDO::FETCH_ASSOC)){
+            $user = new User($row['userId'], $row['firstName'], $row['lastName'], $row['email'], $row['phoneNumber'], $row['dateOfBirth'], $row['password']);
+            array_push($userArray, $user->getUserAsArray()); 
+        }
+
+
+        $returnData = array();
+        $returnData['rows_returned'] = $rowCount;
+        $returnData['users'] = $userArray;
+
+
+        $response = new Response();
+        $response->setHttpStatusCode(200);
+        $response->setSuccess(true);
+        $response->setCache(true);
+        $response->setData($returnData);
+        $response->send();
+        exit();
+
+    }
+    elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE'){
+        require_once('auth.php');
+        // DELETE SPECIFIC USER
+
+        try {
+            $query = $writeDB->prepare('delete from tbl_users where userId=:userId');
+            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if ($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("Error: User not Found");
+                $response->send();
+                exit();
+            }
+
+            $response = new Response();
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->addMessage("User Deleted Successfully");
+            $response->send();
+            exit();
+        }
+        catch(PDOException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage("Failed to Delete Task");
+            $response->send();
+            exit();
+        }
+
+
+    }
+    elseif ($_SERVER['REQUEST_METHOD'] === 'PATCH'){
+        require_once('auth.php');
+        // UPDATE SPECIFIC USER
+        
+        try{
+            if($_SERVER['CONTENT_TYPE'] !== 'application/json'){
+                $response = new Response();
+                $response->setHttpStatusCode(400);
+                $response->setSuccess(false);
+                $response->addMessage("Error: Invalid Content Type Header");
+                $response->send();
+                exit();
+            }
+
+            $rawPATCHData = file_get_contents('php://input');
+
+            if(!$jsonData = json_decode($rawPATCHData)){
+                $response = new Response();
+                $response->setHttpStatusCode(400);
+                $response->setSuccess(false);
+                $response->addMessage("Error: Request Body is not Valid JSON");
+                $response->send();
+                exit();
+            }
+
+            $firstNameUpdated = false;
+            $lastNameUpdated = false;
+            $emailUpdated = false;
+            $phoneNumberUpdated = false;
+            $dateOfBirthUpdated = false;
+
+            $queryFields = "";
+
+            if (isset($jsonData->firstName)){
+                $firstNameUpdated = true;
+                $queryFields .= "firstName = :firstName, ";
+            }
+            if (isset($jsonData->lastName)){
+                $lastNameUpdated = true;
+                $queryFields .= "lastName = :lastName, ";
+            }
+            if (isset($jsonData->email)){
+                $emailUpdated = true;
+                $queryFields .= "email = :email, ";
+            }
+            if (isset($jsonData->phoneNumber)){
+                $phoneNumberUpdated = true;
+                $queryFields .= "phoneNumber = :phoneNumber, ";
+            }
+            if (isset($jsonData->dateOfBirth)){
+                $dateOfBirthUpdated = true;
+                $queryFields .= "dateOfBirth = :dateOfBirth, ";
+            }
+            
+
+            $queryFields = rtrim($queryFields, ", ");
+
+            if ($queryFields === ""){
+                $response = new Response();
+                $response->setHttpStatusCode(400);
+                $response->setSuccess(false);
+                $response->addMessage("No Data Provided");
+                $response->send();
+                exit();
+            }
+
+            $counter = 0;
+
+            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, DATE_FORMAT(dateOfBirth, "%d-%m-%Y %H:%i") as "dateOfBirth", password from tbl_users where userId = :userId');
+            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("Error: User ID Not Found");
+                $response->send();
+                exit();
+            }
+
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $user = new User($row["userId"], $row["firstName"], $row["lastName"], $row["email"], $row["phoneNumber"], $row["dateOfBirth"], $row["password"]);
+            }      
+            
+            $updateQueryString = "update tbl_users set ".$queryFields." where userId = :userId";
+            $updateQuery = $writeDB->prepare($updateQueryString);
+
+            if ($firstNameUpdated === true){
+                $user->setFirstName($jsonData->firstName);
+                $updatedFirstName = $user->getFirstName();
+                $updateQuery->bindParam('firstName', $updatedFirstName, PDO::PARAM_STR);
+            }
+            if ($lastNameUpdated === true){
+                $user->setLastName($jsonData->lastName);
+                $updatedLastName = $user->getLastName();
+                $updateQuery->bindParam('lastName', $updatedLastName, PDO::PARAM_STR);
+            }
+            if ($emailUpdated === true){
+                $user->setEmail($jsonData->email);
+                $updatedEmail = $user->getEmail();
+                $updateQuery->bindParam('email', $updatedEmail, PDO::PARAM_STR);
+            }
+            if ($phoneNumberUpdated === true){
+                $user->setPhoneNumber($jsonData->phoneNumber);
+                $updatedPhoneNumber = $user->getPhoneNumber();
+                $updateQuery->bindParam('phoneNumber', $updatedPhoneNumber, PDO::PARAM_STR);
+            }
+            if ($dateOfBirthUpdated === true){
+                $user->setDateOfBirth($jsonData->dateOfBirth);
+                $updatedDateOfBirth = $user->getDateOfBirth();
+                $updateQuery->bindParam('dateOfBirth', $updatedDateOfBirth, PDO::PARAM_STR);
+            }
+
+            $updateQuery->bindParam('userId', $authorisedUserId, PDO::PARAM_INT);
+            $updateQuery->execute();
+
+            $rowCount = $updateQuery->rowCount();
+            $taskArray = array();
+
+            if ($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("User Not Updated");
+                $response->send();
+                exit();
+            }
+
+            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, DATE_FORMAT(dateOfBirth, "%d-%m-%Y %H:%i") as "dateOfBirth", password from tbl_users where userId = :userId');
+            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("Error: User ID Not Found");
+                $response->send();
+                exit();
+            }
+
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $user = new User($row["userId"], $row["firstName"], $row["lastName"], $row["email"], $row["phoneNumber"], $row["dateOfBirth"], $row["password"]);
+                $userArray[] = $user->getUserAsArray();
+            }    
+
+            $returnData = array();
+            $returnData['rows_returned'] = $rowCount;
+            $returnData['users'] = $userArray;
+
+            $response = new Response();
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->setCache(true);
+            $response->setData($returnData);
+            $response->send();
+            exit();
+        }
+        catch (UserException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(400);
+            $response->setSuccess(false);
+            $response->addMessage($exception->getMessage());
+            $response->send();
+            exit();
+        }
+        catch (PDOException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage("Failed to Update User");
             $response->send();
             exit();
         }
