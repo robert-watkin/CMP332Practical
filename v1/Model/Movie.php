@@ -77,7 +77,7 @@ class Movie{
     }
 
     public function setReleaseDate($releaseDate){
-        if (!$this->isValidDate($releaseDate, 'd-m-Y') && !$this->isValidDate($releaseDate)){
+        if ($releaseDate !== "00-00-0000" && !$this->isValidDate($releaseDate, 'd-m-Y') && !$this->isValidDate($releaseDate)){
             throw new MovieException("Error: Release Date Issue");
         }
         $this->_releaseDate = $releaseDate;

@@ -292,7 +292,7 @@ if (empty($_GET))
             }
             if (isset($jsonData->dateOfBirth)){
                 $dateOfBirthUpdated = true;
-                $queryFields .= "dateOfBirth = :dateOfBirth, ";
+                $queryFields .= "dateOfBirth = STR_TO_DATE(:dateOfBirth, '%d-%m-%Y') ";
             }
             
 
@@ -309,7 +309,7 @@ if (empty($_GET))
 
             $counter = 0;
 
-            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, DATE_FORMAT(dateOfBirth, "%d-%m-%Y %H:%i") as "dateOfBirth", password from tbl_users where userId = :userId');
+            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, DATE_FORMAT(dateOfBirth, "%d-%m-%Y") as "dateOfBirth", password from tbl_users where userId = :userId');
             $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
             $query->execute();
 
@@ -334,27 +334,27 @@ if (empty($_GET))
             if ($firstNameUpdated === true){
                 $user->setFirstName($jsonData->firstName);
                 $updatedFirstName = $user->getFirstName();
-                $updateQuery->bindParam('firstName', $updatedFirstName, PDO::PARAM_STR);
+                $updateQuery->bindParam(':firstName', $updatedFirstName, PDO::PARAM_STR);
             }
             if ($lastNameUpdated === true){
                 $user->setLastName($jsonData->lastName);
                 $updatedLastName = $user->getLastName();
-                $updateQuery->bindParam('lastName', $updatedLastName, PDO::PARAM_STR);
+                $updateQuery->bindParam(':lastName', $updatedLastName, PDO::PARAM_STR);
             }
             if ($emailUpdated === true){
                 $user->setEmail($jsonData->email);
                 $updatedEmail = $user->getEmail();
-                $updateQuery->bindParam('email', $updatedEmail, PDO::PARAM_STR);
+                $updateQuery->bindParam(':email', $updatedEmail, PDO::PARAM_STR);
             }
             if ($phoneNumberUpdated === true){
                 $user->setPhoneNumber($jsonData->phoneNumber);
                 $updatedPhoneNumber = $user->getPhoneNumber();
-                $updateQuery->bindParam('phoneNumber', $updatedPhoneNumber, PDO::PARAM_STR);
+                $updateQuery->bindParam(':phoneNumber', $updatedPhoneNumber, PDO::PARAM_STR);
             }
             if ($dateOfBirthUpdated === true){
                 $user->setDateOfBirth($jsonData->dateOfBirth);
                 $updatedDateOfBirth = $user->getDateOfBirth();
-                $updateQuery->bindParam('dateOfBirth', $updatedDateOfBirth, PDO::PARAM_STR);
+                $updateQuery->bindParam(':dateOfBirth', $updatedDateOfBirth, PDO::PARAM_STR);
             }
 
             $updateQuery->bindParam('userId', $authorisedUserId, PDO::PARAM_INT);
@@ -372,7 +372,7 @@ if (empty($_GET))
                 exit();
             }
 
-            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, DATE_FORMAT(dateOfBirth, "%d-%m-%Y %H:%i") as "dateOfBirth", password from tbl_users where userId = :userId');
+            $query = $readDB->prepare('select userId, firstName, lastName, email, phoneNumber, DATE_FORMAT(dateOfBirth, "%d-%m-%Y") as "dateOfBirth", password from tbl_users where userId = :userId');
             $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
             $query->execute();
 
