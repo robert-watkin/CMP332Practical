@@ -157,7 +157,7 @@ if (empty($_GET))
             $response = new Response();
             $response->setHttpStatusCode(500);
             $response->setSuccess(false);
-            $response->addMessage("PDO Error: Failed to Insert User into Database".$exception);
+            $response->addMessage("PDO Error: Failed to Insert User into Database");
             $response->send();
             exit();
         }

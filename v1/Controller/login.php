@@ -143,7 +143,7 @@ else
     $response = new Response();
     $response->setHttpStatusCode(400);
     $response->setSuccess(false);
-    $response->addMessage("Error: Please Provide Email and Password to Generate Token");
+    $response->addMessage("Error: Please Provide Email and Password to Login and Generate Token");
     $response->send();
     exit();
 }

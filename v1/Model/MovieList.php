@@ -77,5 +77,17 @@ class MovieList{
     public function setUserId($userId){
         $this->_userId = $userId;
     }
+
+    public function getListAsArray(){
+        $list = array();
+        $list['listId'] = $this->getListId();
+        $list['title'] = $this->getTitle();
+        $list['movieIds'] = $this->getMovieIds();
+        $list['lastUpdated'] = $this->getLastUpdated();
+        $list['userId'] = $this->getUserId();
+
+
+        return $list;
+    }
 }
 ?>

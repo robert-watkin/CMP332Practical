@@ -54,7 +54,7 @@ class Movie{
     // SETTERS
 
     public function setMovieId($movieId){
-        if ($movieId !== null && (is_numeric($movieId) || $this->_movieId !== null)){
+        if ($movieId !== null && (!is_numeric($movieId) || $this->_movieId !== null)){
             throw new MovieException("Error: Movie ID Issue");
         }
 
@@ -73,13 +73,26 @@ class Movie{
         if ($runTime !== null && !is_numeric($runTime)){
             throw new MovieException("Error: Run Time Exception");
         }
+        $this->_runTime = $runTime;
     }
 
     public function setReleaseDate($releaseDate){
-        if (!$this->isValidDate($releaseDate, 'd-m-Y')){
+        if (!$this->isValidDate($releaseDate, 'd-m-Y') && !$this->isValidDate($releaseDate)){
             throw new MovieException("Error: Release Date Issue");
         }
         $this->_releaseDate = $releaseDate;
+    }
+
+    public function getMovieAsArray(){
+        $movie = array();
+        $movie['movieId'] = $this->getMovieId();
+        $movie['title'] = $this->getTitle();
+        $movie['description'] = $this->getDescription();
+        $movie['runTime'] = $this->getRunTime();
+        $movie['releaseDate'] = $this->getReleaseDate();
+
+
+        return $movie;
     }
 }
 ?>
