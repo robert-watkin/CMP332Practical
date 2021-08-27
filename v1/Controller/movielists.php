@@ -83,7 +83,6 @@ if (array_key_exists("listId", $_GET)) {
         exit();
 
     }elseif($_SERVER['REQUEST_METHOD'] === 'PATCH'){
-        // TODO patch
         // patch a specific movie
         try{
             if($_SERVER['CONTENT_TYPE'] !== 'application/json'){
@@ -155,7 +154,6 @@ if (array_key_exists("listId", $_GET)) {
             
             $updateQueryString = "update tbl_movielists set ".$queryFields." where listId = :listId";
             $updateQuery = $writeDB->prepare($updateQueryString);
-
             
 
             if ($titleUpdated === true){
@@ -239,6 +237,38 @@ if (array_key_exists("listId", $_GET)) {
         }
     }elseif($_SERVER['REQUEST_METHOD'] === 'DELETE'){
         // TODO post
+        try {
+            $query = $writeDB->prepare('delete from tbl_movielists where listId=:listId and userId=:userId');
+            $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
+            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if ($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("Error: List not Found");
+                $response->send();
+                exit();
+            }
+
+            $response = new Response();
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->addMessage("List Deleted Successfully");
+            $response->send();
+            exit();
+        }
+        catch(PDOException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage("Failed to Delete List");
+            $response->send();
+            exit();
+        }
     }
     else{
         $response = new Response();
