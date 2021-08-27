@@ -4,7 +4,7 @@ class EntryException extends Exception{
 
 }
 
-class Movie{
+class ListEntry{
     private $_listId;
     private $_movieId;
 
@@ -28,7 +28,7 @@ class Movie{
     // SETTERS
 
     public function setListId($listId){
-        if ($listId !== null && (!is_numeric($listId) || $this->listId !== null)){
+        if ($listId !== null && (!is_numeric($listId) || $this->_listId !== null)){
             throw new EntryException("Error: List ID Issue");
         }
 
@@ -41,6 +41,14 @@ class Movie{
         }
 
         $this->_movieId = $movieId;
+    }
+
+    public function getEntryAsArray(){
+        $list = array();
+        $list['listId'] = $this->getListId();
+        $list['movieId'] = $this->getMovieId();
+
+        return $list;
     }
 }
 ?>

@@ -348,40 +348,7 @@ elseif(empty($_GET)) {
     }elseif($_SERVER['REQUEST_METHOD'] === 'POST'){
         // add new movie to DB
         try {
-            if($_SERVER['CONTENT_TYPE'] !== 'application/json'){
-                $response = new Response();
-                $response->setHttpStatusCode(400);
-                $response->setSuccess(false);
-                $response->addMessage("Error: Invalid Content Type Header");
-                $response->send();
-                exit();
-            }
-
-            $rawPOSTData = file_get_contents('php://input');
-
-            if(!$jsonData = json_decode($rawPOSTData)){
-                $response = new Response();
-                $response->setHttpStatusCode(400);
-                $response->setSuccess(false);
-                $response->addMessage("Error: Request Body is not Valid JSON");
-                $response->send();
-                exit();
-            }
-
-
-            if (!isset($jsonData->title) || !isset($jsonData->description) || !isset($jsonData->runTime) || !isset($jsonData->releaseDate)){
-                $response = new Response();
-                $response->setHttpStatusCode(400);
-                $response->setSuccess(false);
-                (!isset($jsonData->title) ? $response->addMessage("Error: Title is a Mandatory Field") : false);
-                (!isset($jsonData->description) ? $response->addMessage("Error: Description is a Mandatory Field") : false);   
-                (!isset($jsonData->runTime) ? $response->addMessage("Error: Run Time is a Mandatory Field") : false);     
-                (!isset($jsonData->releaseDate) ? $response->addMessage("Error: Release Date is a Mandatory Field") : false);   
-                $response->send();
-                exit();
-            }
-
-            $newMovie = new Movie(null,
+            $entry = new ListEntry(null,
                         (isset($jsonData->title) ? $jsonData->title : null),
                         (isset($jsonData->description) ? $jsonData->description : null),
                         (isset($jsonData->runTime) ? $jsonData->runTime : null),
