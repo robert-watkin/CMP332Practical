@@ -6,20 +6,18 @@ class MovieListException extends Exception{
 class MovieList{
     private $_listId;
     private $_title;
-    private $_movieIds;
     private $_lastUpdated;
     private $_userId;
 
-    public function __construct($listId, $title, $movieIds, $lastUpdated, $userId)
+    public function __construct($listId, $title, $lastUpdated, $userId)
     {
         $this->setListId($listId);
         $this->setTitle($title);
-        $this->setMovieIds($movieIds);
         $this->setLastUpdated($lastUpdated);
         $this->setUserId($userId);
     }
 
-    public function isValidDate($date, $format = 'Y-m-d'){
+    public function isValidDate($date, $format = 'Y-m-d H:i:s'){
         if ($date === null || $date === ""){
             return true;
         }
@@ -31,16 +29,13 @@ class MovieList{
     // GETTERS
 
     public function getListId(){
-        $this->_listId;
+        return $this->_listId;
     }
 
     public function getTitle(){
         return $this->_title;
     }
 
-    public function getMovieIds(){
-        return $this->_movieIds;
-    }
 
     public function getLastUpdated(){
         return $this->_lastUpdated;
@@ -63,12 +58,9 @@ class MovieList{
         $this->_title = $title;
     }
 
-    public function setMovieIds($movieIds){
-        $this->_movieIds = $movieIds;
-    }
 
     public function setLastUpdated($lastUpdated){
-        if (!$this->isValidDate($lastUpdated, 'Y-m-d H:i:s')){
+        if (!$this->isValidDate($lastUpdated)){
             throw new MovieListException("Error: Last Updated Issue");
         }
         $this->_lastUpdated = $lastUpdated;
@@ -82,10 +74,8 @@ class MovieList{
         $list = array();
         $list['listId'] = $this->getListId();
         $list['title'] = $this->getTitle();
-        $list['movieIds'] = $this->getMovieIds();
         $list['lastUpdated'] = $this->getLastUpdated();
         $list['userId'] = $this->getUserId();
-
 
         return $list;
     }
