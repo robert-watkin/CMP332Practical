@@ -41,8 +41,7 @@ if (array_key_exists("listId", $_GET)) {
     }
 
     if($_SERVER['REQUEST_METHOD'] === 'GET'){
-        // TODO get all
-        // get all for that specific user
+        // get specific list
         $query = $readDB->prepare('select listId, title, DATE_FORMAT(lastUpdated, "%d-%m-%Y %H-%i-%s") as "lastUpdated", userId from tbl_movielists where userId = :userId and listId = :listId');
         $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
         $query->bindParam(':listId', $listId, PDO::PARAM_INT);
@@ -236,7 +235,6 @@ if (array_key_exists("listId", $_GET)) {
             exit();
         }
     }elseif($_SERVER['REQUEST_METHOD'] === 'DELETE'){
-        // TODO post
         try {
             $query = $writeDB->prepare('delete from tbl_movielists where listId=:listId and userId=:userId');
             $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
@@ -253,6 +251,8 @@ if (array_key_exists("listId", $_GET)) {
                 $response->send();
                 exit();
             }
+
+            // TODO delete all list entries referencing this list
 
             $response = new Response();
             $response->setHttpStatusCode(200);
@@ -347,6 +347,8 @@ elseif(empty($_GET)) {
                 exit();
             }
 
+            // TODO check if list name is already taken
+
             
             $current = new DateTime();
             $lastUpdated = $current->format('Y-m-d H:i:s');
@@ -362,7 +364,6 @@ elseif(empty($_GET)) {
             $lastUpdated = $newList->getLastUpdated();
 
             $query = $writeDB->prepare('insert into tbl_movielist (title, lastUpdated, userId) value (:title, STR_TO_DATE(:lastUpdated, \'%Y-%m-%d %H:%i:%s\'), :userId)');
-
             
 
             $query->bindParam(':title', $title , PDO::PARAM_STR);

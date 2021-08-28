@@ -79,5 +79,9 @@ class MovieList{
 
         return $list;
     }
+
+    public function saveLastUpdated(){
+        // TODO update the last updated field in the db to now
+    }
 }
 ?>

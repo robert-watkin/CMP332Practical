@@ -261,7 +261,7 @@ if (array_key_exists("movieId", $_GET)) {
             exit();
         }
     }elseif($_SERVER['REQUEST_METHOD'] === 'DELETE'){
-        // TODO delete specific
+        // delete specific
         try {
             $query = $writeDB->prepare('delete from tbl_movies where movieId=:movieId');
             $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
@@ -277,6 +277,8 @@ if (array_key_exists("movieId", $_GET)) {
                 $response->send();
                 exit();
             }
+
+            // TODO delete all list entries referencing this movie
 
             $response = new Response();
             $response->setHttpStatusCode(200);
