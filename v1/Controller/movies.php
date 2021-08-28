@@ -280,6 +280,8 @@ if (array_key_exists("movieId", $_GET)) {
 
             // TODO delete all list entries referencing this movie
 
+            
+
             $response = new Response();
             $response->setHttpStatusCode(200);
             $response->setSuccess(true);

@@ -2,6 +2,7 @@
 require_once('db.php');
 require_once('../Model/Movie.php');
 require_once('../Model/MovieList.php');
+require_once('../Model/ListEntry.php');
 require_once('../Model/User.php');
 require_once('../Model/Response.php');
 
@@ -41,46 +42,101 @@ if (array_key_exists("listId", $_GET)) {
     }
 
     if($_SERVER['REQUEST_METHOD'] === 'GET'){
-        // get specific list
-        $query = $readDB->prepare('select listId, title, DATE_FORMAT(lastUpdated, "%d-%m-%Y %H-%i-%s") as "lastUpdated", userId from tbl_movielists where userId = :userId and listId = :listId');
-        $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
-        $query->bindParam(':listId', $listId, PDO::PARAM_INT);
+        try{
+            // get specific list
+            $query = $readDB->prepare('select listId, title, lastUpdated, userId from tbl_movielists where userId = :userId and listId = :listId');
+            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+            $query->bindParam(':listId', $listId, PDO::PARAM_INT);
 
-        $query->execute();
+            $query->execute();
 
-        $rowCount = $query->rowCount();
-        $listArray = array();
+            $rowCount = $query->rowCount();
+            $listArray = array();
 
-        if($rowCount === 0){
+            if($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("Error: List ID Not Found or List Belongs to a Different User");
+                $response->send();
+                exit();
+            }
+
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $list = new MovieList($row['listId'], $row['title'], $row['lastUpdated'], $row['userId']);
+                array_push($listArray, $list->getListAsArray()); 
+            }
+
+            // get all entries for that list
+            $query = $readDB->prepare('select listId, movieId from tbl_listentries where listId=:listId');
+            $query->bindParam(':listId', $listId, PDO::PARAM_INT);
+            $query->execute();
+
+            $movieCount = $query->rowCount();
+            $movieArray = array();
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $entry = new ListEntry($row['listId'], $row['movieId']);
+
+                $movieId = $entry->getMovieId();
+                // get the associated movie
+                $query = $readDB->prepare('select movieId, title, description, runTime, releaseDate from tbl_movies where movieId=:movieId');
+                $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
+                $query->execute();
+
+                $movieArray = array();
+                while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                    $movie = new Movie($row['movieId'], $row['title'], $row['description'], $row['runTime'], $row['releaseDate']);
+                    array_push($movieArray, $movie->getMovieAsArray()); 
+                }
+            }
+
+            $returnData = array();
+            $returnData['rows_returned'] = $rowCount;
+            $returnData['lists'] = $listArray;
+            $returnData['movies'] = $movieArray;
+
+
             $response = new Response();
-            $response->setHttpStatusCode(404);
-            $response->setSuccess(false);
-            $response->addMessage("Error: List ID Not Found or List Belongs to a Different User");
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->setCache(true);
+            $response->addMessage($movieCount." movies within the list");
+            $response->setData($returnData);
             $response->send();
             exit();
         }
-
-        while($row = $query->fetch(PDO::FETCH_ASSOC)){
-            $list = new MovieList($row['listId'], $row['title'], $row['lastUpdated'], $row['userId']);
-            array_push($listArray, $list->getListAsArray()); 
+        catch (MovieListException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(400);
+            $response->setSuccess(false);
+            $response->addMessage($exception->getMessage());
+            $response->send();
+            exit();
         }
-
-        // TODO get all movies
-
-
-        $returnData = array();
-        $returnData['rows_returned'] = $rowCount;
-        $returnData['lists'] = $listArray;
-
-
-        $response = new Response();
-        $response->setHttpStatusCode(200);
-        $response->setSuccess(true);
-        $response->setCache(true);
-        $response->setData($returnData);
-        $response->send();
-        exit();
-
+        catch (MovieException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(400);
+            $response->setSuccess(false);
+            $response->addMessage($exception->getMessage());
+            $response->send();
+            exit();
+        }
+        catch (EntryException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(400);
+            $response->setSuccess(false);
+            $response->addMessage($exception->getMessage());
+            $response->send();
+            exit();
+        }
+        catch (PDOException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage("Failed to Get Movie");
+            $response->send();
+            exit();
+        }
     }elseif($_SERVER['REQUEST_METHOD'] === 'PATCH'){
         // patch a specific movie
         try{
@@ -218,6 +274,14 @@ if (array_key_exists("listId", $_GET)) {
             $response->send();
             exit();
         }
+        catch (MovieListException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(400);
+            $response->setSuccess(false);
+            $response->addMessage($exception->getMessage());
+            $response->send();
+            exit();
+        }
         catch (MovieException $exception){
             $response = new Response();
             $response->setHttpStatusCode(400);
@@ -237,7 +301,7 @@ if (array_key_exists("listId", $_GET)) {
     }elseif($_SERVER['REQUEST_METHOD'] === 'DELETE'){
         try {
             $query = $writeDB->prepare('delete from tbl_movielists where listId=:listId and userId=:userId');
-            $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
+            $query->bindParam(':listId', $listId, PDO::PARAM_INT);
             $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
             $query->execute();
 
@@ -252,12 +316,18 @@ if (array_key_exists("listId", $_GET)) {
                 exit();
             }
 
-            // TODO delete all list entries referencing this list
+            // delete all list entries referencing this list
+            $query = $writeDB->prepare('delete from tbl_listentries where listId=:listId');
+            $query->bindParam(':listId', $listId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
 
             $response = new Response();
             $response->setHttpStatusCode(200);
             $response->setSuccess(true);
             $response->addMessage("List Deleted Successfully");
+            $response->addMessage($rowCount." list entries removed as a result");
             $response->send();
             exit();
         }
@@ -346,10 +416,8 @@ elseif(empty($_GET)) {
                 $response->send();
                 exit();
             }
-
-            // TODO check if list name is already taken
-
             
+            // setup variables for new list
             $current = new DateTime();
             $lastUpdated = $current->format('Y-m-d H:i:s');
 
@@ -363,8 +431,25 @@ elseif(empty($_GET)) {
             $title = $newList->getTitle();
             $lastUpdated = $newList->getLastUpdated();
 
-            $query = $writeDB->prepare('insert into tbl_movielist (title, lastUpdated, userId) value (:title, STR_TO_DATE(:lastUpdated, \'%Y-%m-%d %H:%i:%s\'), :userId)');
-            
+            // check if list name is already taken
+            $query = $readDB->prepare('select title from tbl_movielists where userId=:userId');
+            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                if ($title === $row['title']){
+                    $response = new Response();
+                    $response->setHttpStatusCode(400);
+                    $response->setSuccess(false);
+                    $response->addMessage("ERROR: There is Already a List With the Same Title");
+                    $response->send();
+                    exit();
+                }
+            }
+
+            $query = $writeDB->prepare('insert into tbl_movielists (title, lastUpdated, userId) value (:title, STR_TO_DATE(:lastUpdated, \'%Y-%m-%d %H:%i:%s\'), :userId)');
 
             $query->bindParam(':title', $title , PDO::PARAM_STR);
             $query->bindParam(':lastUpdated', $lastUpdated , PDO::PARAM_STR);
@@ -386,7 +471,7 @@ elseif(empty($_GET)) {
             
             $lastListID = $writeDB->lastInsertId();
 
-            $query = $readDB->prepare('select listId, title, lastUpdated, userId from tbl_movielist where listId=:listId');
+            $query = $readDB->prepare('select listId, title, lastUpdated, userId from tbl_movielists where listId=:listId');
             $query->bindParam(':listId', $lastListID, PDO::PARAM_INT);
             $query->execute();
 
@@ -402,11 +487,7 @@ elseif(empty($_GET)) {
                 exit();
             }
 
-            
-
             while($row = $query->fetch(PDO::FETCH_ASSOC)){
-                echo $row['lastUpdated'];
-
                 $list = new MovieList($row['listId'], $row['title'], $row['lastUpdated'], $row['userId']);
                 array_push($listArray, $list->getListAsArray()); 
             }

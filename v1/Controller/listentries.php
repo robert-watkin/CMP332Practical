@@ -53,90 +53,121 @@ if (array_key_exists("movieId", $_GET) && array_key_exists("listId", $_GET)) {
 
 
     if($_SERVER['REQUEST_METHOD'] === 'GET'){
-        // this get returns data for the entry, the movie and the list
-        // check the list exists
-        $query = $readDB->prepare('select listId, title, lastUpdated, userId from tbl_movielists where listId=:listId and userId=:userId');
-        $query->bindParam(':listId', $listId, PDO::PARAM_INT);
-        $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
-        $query->execute();
+        try {
+            // this get returns data for the entry, the movie and the list
+            // check the list exists
+            $query = $readDB->prepare('select listId, title, lastUpdated, userId from tbl_movielists where listId=:listId and userId=:userId');
+            $query->bindParam(':listId', $listId, PDO::PARAM_INT);
+            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
+            $query->execute();
 
-        $rowCount = $query->rowCount();
+            $rowCount = $query->rowCount();
 
-        if ($rowCount === 0){
+            if ($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("ERROR: List Does Not Exist or Belongs to a Different User");
+                $response->send();
+                exit();
+            }
+
+            $listArray = array();
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $list = new MovieList($row['listId'], $row['title'], $row['lastUpdated'], $row['userId']);
+                array_push($listArray, $list->getListAsArray()); 
+            }
+
+            // ensure the entry is in the db
+            $query = $readDB->prepare('select listId, movieId from tbl_listentries where listId=:listId and movieId=:movieId');
+            $query->bindParam(':listId', $listId, PDO::PARAM_INT);
+            $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if ($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("ERROR: List Entry Not Exist");
+                $response->send();
+                exit();
+            }
+
+            $entryArray = array();
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $entry = new ListEntry($row['listId'], $row['movieId']);
+                array_push($entryArray, $entry->getEntryAsArray()); 
+            }
+
+            // get the associated movie
+            $query = $readDB->prepare('select movieId, title, description, runTime, releaseDate from tbl_movies where movieId=:movieId');
+            $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if ($rowCount === 0){
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("ERROR: Movie Not Found");
+                $response->send();
+                exit();
+            }
+
+            $movieArray = array();
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $movie = new Movie($row['movieId'], $row['title'], $row['description'], $row['runTime'], $row['releaseDate']);
+                array_push($movieArray, $movie->getMovieAsArray()); 
+            }
+
+            $returnData = array();
+            $returnData['rows_returned'] = $rowCount;
+            $returnData['entry'] = $entryArray;
+            $returnData['movie'] = $movieArray;
+            $returnData['list'] = $listArray;
+
+
             $response = new Response();
-            $response->setHttpStatusCode(404);
-            $response->setSuccess(false);
-            $response->addMessage("ERROR: List Does Not Exist or Belongs to a Different User");
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->setCache(true);
+            $response->setData($returnData);
             $response->send();
             exit();
         }
-
-        $listArray = array();
-        while($row = $query->fetch(PDO::FETCH_ASSOC)){
-            $list = new MovieList($row['listId'], $row['title'], $row['lastUpdated'], $row['userId']);
-            array_push($listArray, $list->getListAsArray()); 
-        }
-
-        // ensure the entry is in the db
-        $query = $readDB->prepare('select listId, movieId from tbl_listentries where listId=:listId and movieId=:movieId');
-        $query->bindParam(':listId', $listId, PDO::PARAM_INT);
-        $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
-        $query->execute();
-
-        $rowCount = $query->rowCount();
-
-        if ($rowCount === 0){
+        catch (EntryException $exception){
             $response = new Response();
-            $response->setHttpStatusCode(404);
+            $response->setHttpStatusCode(400);
             $response->setSuccess(false);
-            $response->addMessage("ERROR: List Entry Not Exist");
+            $response->addMessage($exception->getMessage());
+            $response->send();
+            exit();
+        } catch (MovieException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(400);
+            $response->setSuccess(false);
+            $response->addMessage($exception->getMessage());
+            $response->send();
+            exit();
+        } catch (MovieListException $exception){
+            $response = new Response();
+            $response->setHttpStatusCode(400);
+            $response->setSuccess(false);
+            $response->addMessage($exception->getMessage());
             $response->send();
             exit();
         }
-
-        $entryArray = array();
-        while($row = $query->fetch(PDO::FETCH_ASSOC)){
-            $entry = new ListEntry($row['listId'], $row['movieId']);
-            array_push($entryArray, $entry->getEntryAsArray()); 
-        }
-
-        // get the associated movie
-        $query = $readDB->prepare('select movieId, title, description, runTime, releaseDate from tbl_movies where movieId=:movieId');
-        $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
-        $query->execute();
-
-        $rowCount = $query->rowCount();
-
-        if ($rowCount === 0){
+        catch (PDOException $exception){
             $response = new Response();
-            $response->setHttpStatusCode(404);
+            $response->setHttpStatusCode(500);
             $response->setSuccess(false);
-            $response->addMessage("ERROR: Movie Not Found");
+            $response->addMessage("PDO Error: Failed to Insert Movie into Database".$exception);
             $response->send();
             exit();
         }
-
-        $movieArray = array();
-        while($row = $query->fetch(PDO::FETCH_ASSOC)){
-            $movie = new Movie($row['movieId'], $row['title'], $row['description'], $row['runTime'], $row['releaseDate']);
-            array_push($movieArray, $movie->getMovieAsArray()); 
-        }
-
-        $returnData = array();
-        $returnData['rows_returned'] = $rowCount;
-        $returnData['entry'] = $entryArray;
-        $returnData['movie'] = $movieArray;
-        $returnData['list'] = $listArray;
-
-
-        $response = new Response();
-        $response->setHttpStatusCode(200);
-        $response->setSuccess(true);
-        $response->setCache(true);
-        $response->setData($returnData);
-        $response->send();
-        exit();
-
 
     }elseif($_SERVER['REQUEST_METHOD'] === 'POST'){
         // add new entry to DB
@@ -300,8 +331,8 @@ if (array_key_exists("movieId", $_GET) && array_key_exists("listId", $_GET)) {
 
 
             $query = $writeDB->prepare('delete from tbl_listentries where listId=:listId and movieId=:movieId');
+            $query->bindParam(':listId', $listId, PDO::PARAM_INT);
             $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
-            $query->bindParam(':userId', $authorisedUserId, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -310,7 +341,7 @@ if (array_key_exists("movieId", $_GET) && array_key_exists("listId", $_GET)) {
                 $response = new Response();
                 $response->setHttpStatusCode(404);
                 $response->setSuccess(false);
-                $response->addMessage("Error: Entry not Found");
+                $response->addMessage("ERROR: Entry not Found");
                 $response->send();
                 exit();
             }
@@ -322,11 +353,11 @@ if (array_key_exists("movieId", $_GET) && array_key_exists("listId", $_GET)) {
             $response->send();
             exit();
         }
-        catch(PDOException $exception){
+        catch (PDOException $exception){
             $response = new Response();
             $response->setHttpStatusCode(500);
             $response->setSuccess(false);
-            $response->addMessage("Failed to Delete List");
+            $response->addMessage("PDO Error: Failed to Delete Entry");
             $response->send();
             exit();
         }
