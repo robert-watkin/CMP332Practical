@@ -62,6 +62,8 @@ if (array_key_exists("movieId", $_GET)) {
                 array_push($movieArray, $task->getMovieAsArray()); 
             }
 
+            
+
             $returnData = array();
             $returnData['rows_returned'] = $rowCount;
             $returnData['movies'] = $movieArray;
@@ -278,14 +280,18 @@ if (array_key_exists("movieId", $_GET)) {
                 exit();
             }
 
-            // TODO delete all list entries referencing this movie
+            // delete all list entries referencing this movie
+            $query = $writeDB->prepare('delete from tbl_listentries where movieId=:movieId');
+            $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
+            $query->execute();
 
+            $rowCount = $query->rowCount();
             
-
             $response = new Response();
             $response->setHttpStatusCode(200);
             $response->setSuccess(true);
             $response->addMessage("Movie Deleted Successfully");
+            $response->addMessage($rowCount." list entries removed as a result");
             $response->send();
             exit();
         }
@@ -391,7 +397,6 @@ elseif(empty($_GET)) {
                         (isset($jsonData->runTime) ? $jsonData->runTime : null),
                         (isset($jsonData->releaseDate) ? $jsonData->releaseDate : null));
 
-                        echo $jsonData->title;
 
             $title = $newMovie->getTitle();
             $description = $newMovie->getDescription();

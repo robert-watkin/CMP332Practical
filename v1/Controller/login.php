@@ -128,12 +128,13 @@ if (array_key_exists("email", $_GET) && array_key_exists("password", $_GET)){
                 exit();
             }
         }
+
     }
     else {
         $response = new Response();
         $response->setHttpStatusCode(400);
         $response->setSuccess(false);
-        $response->addMessage("Error: Invalid Endpoint (hint: use GET to generate token)");
+        $response->addMessage("Invalid Request Method (hint: use GET to generate token)");
         $response->send();
         exit();
     }

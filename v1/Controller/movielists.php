@@ -74,18 +74,19 @@ if (array_key_exists("listId", $_GET)) {
 
             $movieCount = $query->rowCount();
             $movieArray = array();
+
+
             while($row = $query->fetch(PDO::FETCH_ASSOC)){
                 $entry = new ListEntry($row['listId'], $row['movieId']);
 
                 $movieId = $entry->getMovieId();
                 // get the associated movie
-                $query = $readDB->prepare('select movieId, title, description, runTime, releaseDate from tbl_movies where movieId=:movieId');
-                $query->bindParam(':movieId', $movieId, PDO::PARAM_INT);
-                $query->execute();
+                $subQuery = $readDB->prepare('select movieId, title, description, runTime, releaseDate from tbl_movies where movieId=:movieId');
+                $subQuery->bindParam(':movieId', $movieId, PDO::PARAM_INT);
+                $subQuery->execute();
 
-                $movieArray = array();
-                while($row = $query->fetch(PDO::FETCH_ASSOC)){
-                    $movie = new Movie($row['movieId'], $row['title'], $row['description'], $row['runTime'], $row['releaseDate']);
+                while($subRow = $subQuery->fetch(PDO::FETCH_ASSOC)){
+                    $movie = new Movie($subRow['movieId'], $subRow['title'], $subRow['description'], $subRow['runTime'], $subRow['releaseDate']);
                     array_push($movieArray, $movie->getMovieAsArray()); 
                 }
             }
